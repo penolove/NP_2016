@@ -1,0 +1,72 @@
+Senaphore - file locking
+
+利用一個像table的感覺
+ex.:
+假設一個table內的數值是0
+如果是零就給人進
+如果有人進就加一（其他人就進不來）
+如果有人出就減一(其他人可以進來了)
+
+
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+share memory
+
+// Get the shared memory segment and attach it.
+// The server must have already created it.
+
+//獲得share memory segment by SHMKEY
+if ( (shmid = shmget(SHMKEY, sizeof(Mesg), 0)) < 0) err_sys(“...");
+//attach（？）
+if ( (mesgptr = (Mesg *) shmat(shmid, (char *) 0, 0)) == -1) err_sys(“...");
+
+----------------------------------
+
+?? stack ?? heap 
+
+share memory is between stack and heap.
+
+java all things can be allocate (?).
+
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+
+Project2
+============= basic =================
+
+--command: who
+% who
+sockd,nickname,ip/port,indicate me
+
+--command: tell
+% tell 5 hello.
+***student tell you***: Hello
+
+--command: yell
+% yell Hi
+***student yelled***: Hi
+
+== come_in/leave boardcast
+
+=========== advanced =================
+
+% cat test.html >3
+**all clients see: student7 pipe 'cat test.html >3' to student3.
+if pipe already exit
+**show error message.
+
+see spec.
+
+最多三十個使用者
+message more than 1024 bytes truncate to 1024 bytes.
+
+1. single process version. a server handle all process.
+2. concurrent connection-oriented paradigm with share memory.
+
+
+
+
+
+ 
+
+
+
+

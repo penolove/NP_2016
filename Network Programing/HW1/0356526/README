@@ -1,0 +1,19 @@
+Remote Access System, a.k.a. RAS
+----
+
+Usage: ./server <port>
+執行時若不傳入參數則預設使用 port 8588
+
+----
+
+本Project使用C++撰寫, 環境為Linux, 編譯時不需多做設定.
+原始碼內#16 _DEBUG 設定為0時不輸出除錯訊息, #19 CLIENTS_MAX 決定同時連入Client數量的上限.
+
+本程式實作為為Concurrent, Multi-process. Master在外監聽, 當有client連入便fork出一個slave(function ras)供其差遣, 可同時支援多個client連入操作.
+
+程式碼各區簡介:
+	- Tools						大多為各種底層function的wrapper
+	- RAS Command Implementing	將各種RAS指令實作為function
+	- RAS Command Execution		則是執行處理後的指令
+	- RAS Command Process		將RAS收到的訊息處理為程式可接受的資料結構
+	- MAIN						程式入口

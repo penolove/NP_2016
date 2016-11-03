@@ -1,0 +1,7 @@
+   1 bin
+   2 ls.txt
+   3 outtest1.txt
+   4 outtest2.txt
+   5 temp.html
+   6 temp2.html
+   7 test.html

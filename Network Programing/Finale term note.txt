@@ -1,0 +1,160 @@
+﻿1.	Set effective user id.
+	EUID主要用於access check, 通常與RUID相同, 但若啟動的process帶有Saved UID(SUID)時, EUID則會被設定為SUID.
+	EUID的設計就是為了讓普通用戶可以在特殊條件下觸及到原本不可能有權限存取的檔案, 如修改密碼時, /etc/shadow的檔案權限通常是400, 但若如此將沒有使用者可以更改位於其中的密碼, 而更改密碼的指令/usr/bin/passwd則帶有SUID的欄位, 如此在用戶exec passwd時, 其EUID根據SUID會改為root而使其可以修改密碼, 在退出exec時EUID會再恢復為RUID.
+	
+	*	RUID指的是實際開啟此process的user, 主要用途為決定傳送signal時要給哪個user.
+		/etc/shadow		r--------
+		/usr/bin/passwd	r-s--x--x
+	
+2.	Sigpause
+	sigpuase()是設計來等待signal的function, 呼叫時會block住, 直到有signal出現才放行. sigpause()可傳入參數sigmask來暫時改變signal mask, 在sigpause()結束前, 其會將signal mask還原回執行sigpause()前的狀態.
+	
+3.	Forking vs. threading.  How about copy-on-write for forking and threading?
+	fork會產生一個child process, child process與parent process相互獨立, 不過child process的所有內容幾乎與parent process相同. 而thread則是會與同process間的其他thread共享大部分資源, 只有如stack, register互相獨立, 也因此multithread程式必須處理racing問題. thread相較於process, 在系統分配資源上的優勢較低, 但比起fork需要複製所有parent process的內容給新的child process, 創造新thread時的overhead相較低廉.
+	由於fork時需要完整複製一個process的overhead很高, 因此有了COW(copy on write)機制來降低overhead. 此用COW的fork必不會在一開始就完整複製parent process, 而是讓child與parent共用pages, 直到有process改動了其中的內容, 才去複製此項內容.
+
+4.	UNIX Semaphore.
+	Semaphore是為同步機制而設計, 其儲存於kernal內.
+	
+	int semop(int semid, struct sembuf *sops, size_t nsops):
+		SEM_UNDO, it will be automatically undone when the process terminates.
+		if IPC_NOWAIT is specified in sem_flg, semop() fails with errno set to EAGAIN 
+		
+	int semctl(int semid, int semnum, int cmd, ...):
+		// Silent is Gold	
+	
+	Example:
+		static struct sembuf op_lock[2] = {
+			0, 0, 0,		/* wait for sem#0 to become 0 */
+			0, 1, SEM_UNDO	/* then increment sem#0 by 1 */
+		};
+		semid = semget(SEMKEY, 1, IPC_CREAT | PERMS);
+		semop(semid, &op_lock[0], 2);
+		semctl(SEMKEY, 0, IPC_RMID, 0);
+		/*---*/
+		semval = semctl(id, 1, GETVAL, 0);
+		semctl(id, 2, SETVAL, semctl_arg);
+
+5.	INETD
+	INETD是一個super daemon, 屬於一種Multiservice Servers, 旗下管理許多其他的daemon(services), 設定於/etc/inetd.conf
+	在閒置時INETD所管理的daemon皆不會啟動, 直到INETD遇到用戶請求某種services時才會去啟動負責的daemon, 而於其工作完成時再關閉他. 如此的好處是統一管理, 且較節省系統資源, 但對於用戶請求的回應速度則較慢.
+
+6.	Small program designs, like those given in the projects.
+	記得要fork後要關掉不用的fd(pipe, socket...)
+	
+	PIPE:	
+		pipe(pfd);	// int pfd[2]; 0 read fd, 1 write fd
+		
+	FIFO:
+		mknod(filename, S_IFIFO | PERMS, 0);	// Create FIFO
+		unlink(filename);	// Close FIFO
+		readfd	= open(filename, 0);
+		writefd	= open(filename, 1);
+	
+	SIGCHILD = Death of child
+
+7.	Pre-allocation and Delay Process Allocation.
+	由於fork slave需要overhead, 若每個連線本來要處理的時間小於overhead, 那使用concurrency的方法反而會拖慢每筆連線的回應速度.
+	Pre-allocation是系統在最初就fork了許多slaves, 而每個slaves iteratively的接收請求, 如此就不會卡在fork overhead的瓶頸. 但相對的會較耗系統資源.
+	Delay Process Allocation則是一開始只有master來處理連線, 當master發現處理時間高過於設定值後, 才開始fork slaves來分擔任務, 在任務完成後slaves如同concurrency模式, 結束自己.
+	結合了兩種模式(PAP+DPA)則是一開始如DPA的運作, 但每個fork出來的slaves不會結束掉自己, 而是繼續等著新的連線到來.
+
+8.	HTTP: 
+	Expiration vs. Validation. How to calculate ages?  
+		為了加速並減少不必要的連線, HTTP實作了cache機制.
+		Expiration可能由server加註"Expires:"於header或自行根據"Last_modified:"來計算.
+		Age代表了這份檔案從server送出後過了多久時間. 由於此機制會因時鐘不同步而結果有所出入, 因此必須要校正age.
+		
+		* 標準計算法, 每經過一次傳遞(server->proxy, proxy->proxy, proxy->client)都需要更新一次age
+		freshness_lifetime = max_age_value (from server header), or
+		freshness_lifetime = expires_value (from server header) - date_value (from server header)
+		is fresh? ==> freshness_lifetime > current_age
+		Current_age = age + propagation_time(proxy) + resident_time
+		
+		* 避免傳輸過程中其他proxy server的時鐘不同步, 可採用下法
+		corrected_received_age = max(age_value (from server header), response_time - date_value (from server header))
+		response_delay = response_time - request_time
+		corrected_initial_age = corrected_received_age + response_delay
+		resident_time = now - response_time;
+		current_age = corrected_initial_age + resident_time
+		
+		當HTTP請求發現expire後, 會以validator驗證此檔案是否更新了, 若更新了則重新下載.
+		驗證方法可以"Last_modified:"或HTTP Etag.
+	
+	FastCGI. Write a simple one and explain it. 
+		由於傳統CGI每次執行時都需要fork與exec, FastCGI亦在減少這些overhead並保有CGI的優點, 容易撰寫, 幾乎可用任何語言撰寫, 獨立執行... . 相較於原本CGI每次執行才fork出process並完成任務後結束, FastCGI被webservice啟動後會留在背景, 等待任何新連線建立後開始服務, 並於完成任務後繼續等待下一筆連線. 而FastCGI與webserive藉由FastCGI protocol溝通, 不只使其可以各種語言撰寫, 也使其可以socket與webserver連接而於異地執行.
+		
+		Memory leaks指程式未正確的釋放以未被使用的記憶體, 且失去對該記憶體空間的控制, 造成記憶體上的浪費. 由於普通的CGI程式只會執行一次而終止, 因此memory leak問題多無傷大雅, 但FastCGI會不斷執行, 問題會不斷地放大而顯得嚴重. 解決方法之一就是加上counter, 每次FCGI_Accept()都計數一次, 在執行到特定數目(如100)時結束程式, 讓webserver重新啟動FastCGI來釋放記憶體.
+	
+9.	WSAAsyncSelect and the five events, FD_READ, FD_WRITE, FD_CONNECT, FD_ACCEPT, FD_CLOSE. 
+	WSAAsyncSelect為winsock進行非同步socket select的方法. 註冊監聽器後, 在特定事件(FD_READ, FE_WRITE...)發生時呼叫callback function, 並在callback function中檢查哪個事件被觸發了, 以進行對應的行為.
+	
+	FD_READ		為socket的buffer中有內容可被讀取
+	FD_WRITE	由於WSAAsyncSelect是事件導向, FD_WRITE只有在連線後第一次可寫, 以及從不可寫入狀態回復為可寫狀態才會觸發
+	FD_CONNECT	為client所用, 當connect()成功後觸發
+	FD_ACCEPT	為server所以, 當accept()成功後觸發
+	FD_CLOSE	當socket關閉時觸發
+
+10.	Firewalls: 
+	What are good?  What are bad?  What is problem for those bad?
+	Dynamic packet filtering for UDP.  
+	The issues of ICMP. 
+	What is SOCKS? How is SOCKS used for FTP? 
+	The policy setting table of packet filtering for some requirements. 
+		E.g., All outbounds are allowed, but only inbound SMTP is allowed
+	The issues of ftp services, rsh and rsh-like commands for inbound.  How about outbound? 
+	Email attacking. 
+	The issues of DNS.  
+	
+11.	NAT
+	NAT會修改header使內部網路成為一個private network.
+	每當封包由內部送往外部時, NAT會修改header使外部看起來像是自己送出, 並記錄這次內部IP:port與外部IP:port的轉換, 在之後收到外部封包時, 會利用此轉換表再轉回內部的地址, 以此來遮蔽內部網路.
+	
+	private network address:
+		256	Class C Networks:	192.168.0.0 thru 192.168.255.0
+		16	Class B Networks:	172.16.0.0 thru 172.31.0.0
+		1	Class A Networks:	10.0.0.0
+
+	Cone NAT, Symmetric NAT.
+		Full cone NAT，（one-to-one NAT)
+		一旦一個內部地址（iAddr:port1）映射到外部地址（eAddr:port2）, 所有發自iAddr:port1的包都經由eAddr:port2向外發送. 任意外部主機都能通過給eAddr:port2發包到達iAddr:port1
+
+		Address-Restricted cone NAT	
+		一旦一個內部地址（iAddr:port1）映射到外部地址（eAddr:port2）, 所有發自iAddr:port1的包都經由eAddr:port2向外發送. 任意外部主機（hostAddr:any）都能通過給eAddr:port2發包到達iAddr:port1的前提是：iAddr:port1之前發送過包到hostAddr:any. "any"也就是說埠不受限制
+
+		Port-Restricted cone NAT
+		類似受限制錐形NAT（Restricted cone NAT），但是還有埠限制.
+		一旦一個內部地址（iAddr:port1）映射到外部地址（eAddr:port2）,所有發自iAddr:port1的包都經由eAddr:port2向外發送. 一個外部主機（hostAddr:port3）能夠發包到達iAddr:port1的前提是：iAddr:port1之前發送過包到hostAddr:port3.
+
+		Symmetric NAT（對稱NAT）
+		每一個來自相同內部IP與埠, 到一個特定目的地地址和埠的請求, 都映射到一個獨特的外部IP位址和埠.
+		同一內部IP與埠發到不同的目的地和埠的信息包, 都使用不同的映射.
+		只有曾經收到過內部主機封包的外部主機, 才能夠把封包發回.
+		
+	UDP Hole punching
+		假設有兩台分別處於各自的私有網路中的主機：A和B； N1和N2是兩個網路的NAT設備, 分別擁有IP位址P1和P2； S是一個使用了一個眾所周知的, 從全球任何地方都能訪問得到的IP位址的公共伺服器
+		1. A和B分別和S建立UDP連接; NAT設備N1和N2創建UDP轉換狀態並分配臨時的外部埠號, A配P1:X, B配P2:Y
+		2. S檢查UDP封包，傳回給A與B互相的IP:port
+		3. A先嘗試(由P1:X)連接到B的P2:Y, 這時會若失敗, 是因為B不曾從P2:Y連線至P1:X
+		4. B再嘗試(由P2:Y)連接至A的P1:X, 由於剛才A(P1:X)傳UDP給B(P2:Y)過, 因此從此以後雙方可透過P1:X與P2:Y互相傳送
+	
+12.	Explain the Portmapper. 
+	Portmapper
+		Server:
+			resigterrpc(...);
+			svc_run();
+		Client:
+			callrpc(SERVNAME, SPROG, VERS, PROC, xdr_string, name, xdr_long, address);
+			
+		Portmapper itself runs on a fixed port defined in the /etc/services(port 111)
+		
+		Server在執行resigterrpc()後會依照各種參數如SERVNAME, SPROG, VERS來與Portmapper註冊一個port對應至服務. 執行svc_run()後rpc server正式啟動, 此時會listen先前註冊好的各個port.
+		接著client以callrpc()連線, 首先會與server上的Portmapper連線, 並傳給portmapper參數來查詢對應的RPC在哪個port, 接著才正式的向該port發出RPC請求. server接到請求後會去呼叫對應的procedure, 接著再把回傳結果丟回給client, 結束這次RPC請求.
+	
+	Web Services
+		SOAP + WSDL + UDDI
+		SOAP	交換資料的協定(XML)
+		WSDL	描述服務的語言(XML)
+		UDDI	開放的服務清單, 上面記載了各種web services
+	
+		一開始client先去存取UDDI, UDDI會告訴你要去哪裡找到你想要的服務(可能以WSDL回傳), 接著連到http://yourservice.com, 對方會回傳有關自己的資料(WSDL, HTML...), 最後根據這些資料以SOAP協定去向對方請求服務
