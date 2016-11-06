@@ -35,11 +35,15 @@ vector<string> commandParsing(char * command ,char * argv[]){
     vector<string> elems;
     split(s, delim, elems);
     int len=elems.size();
+    int count=0;
     for(int i=0 ;i<len;i++){
-   	char *pc = new char[elems.at(i).size()+1];
-   	strcpy(pc, elems.at(i).c_str());
-	argv[i]=pc;
-	//cout<<i<<':'<<pc<<" ";
+	if(elems.at(i).size()>0){
+   		char *pc = new char[elems.at(i).size()+1];
+   		strcpy(pc, elems.at(i).c_str());
+		argv[count]=pc;
+		count+=1;
+		//cout<<i<<':'<<pc<<" ";
+	}
     }
     argv[len]=NULL;
     //cout<<endl;
@@ -57,6 +61,7 @@ int createProcess(char * filename){
 		_exit(1);
 	}else if(child_pid==0) {
 		char * argv[1501];
+		argv[0]=NULL;
 		commandParsing(filename,argv);
 		// char * argv[] = {"cat", "simple_shell.cpp",NULL};
 		
@@ -70,25 +75,23 @@ int createProcess(char * filename){
 		cout<<endl;
  		-----debug-message----
 		*/
-		cout<<"step1"<<endl;
 		//check if have this order
 		//ls,cat,removetag,removetag0,number
-	    	string s("ls,cat,removetag,removetag0,number");
+	    	string s("ls,cat,removetag,removetag0,number,echo");
 	    	vector<string> elems;
 	    	split(s, ',', elems);
-		cout<<"step1.5"<<endl;
-		string x(argv[0]);	
-		cout<<"step2"<<endl;
-		if(std::find(elems.begin(), elems.end(), x) != elems.end()) {
-			sprintf (buffer, "./%s",argv[0]);
-			//if(execlp(buffer,filename,NULL)==-1){
-			if(execv(buffer,argv)==-1){
-				cout<<"hey,hey ,something wrong"<<endl;
-			};
-			_exit(1);
-		} else {
-			cout<<"sir, there are no this command."<<endl;
-			_exit(1);
+		if(argv[0]!=NULL){
+			string x(argv[0]);	
+			if(std::find(elems.begin(), elems.end(), x) != elems.end()) {
+				sprintf (buffer, "./%s",argv[0]);
+				if(execv(buffer,argv)==-1){
+					cout<<"hey,hey ,something wrong"<<endl;
+				};
+				_exit(1);
+			} else {
+				cout<<"unknown command :["<<argv[0]<<"]."<<endl;
+				_exit(1);
+			}
 		}
 	}else{
 		/*	

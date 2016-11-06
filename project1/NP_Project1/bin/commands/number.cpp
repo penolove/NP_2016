@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 {
   char c;
   int counter = 1;
-/*
+
   if(argc == 1)
      fd = stdin;
   else if(argc == 2)
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
       cout << "   " << counter++ << " " << str;
       cout << endl;
   }
-  fclose(fd);*/
+  fclose(fd);
   return 0;
 
 }
