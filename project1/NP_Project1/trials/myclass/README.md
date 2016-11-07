@@ -1,0 +1,2 @@
+make;
+./play_game;
