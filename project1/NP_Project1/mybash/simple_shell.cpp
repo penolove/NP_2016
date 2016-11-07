@@ -28,7 +28,6 @@ void split(const std::string &s, char delim, std::vector<std::string> &elems) {
     }
 }
 
-
 vector<CommandParse> commandParsing(char* command){
 /* 
  * the logic is command(y) + state(x)
@@ -91,40 +90,39 @@ vector<CommandParse> commandParsing(char* command){
     return commands_v;
 }
 
+void vector2array(vector<string> commands,char * argv[] ){
+	int count=0;
+
+	for(std::vector<string>::iterator it = commands.begin(); it != commands.end(); ++it)
+	{
+		char *pc = new char[(*it).size()+1];
+		strcpy(pc, (*it).c_str());
+		argv[count]=pc;
+		count+=1;	
+	}
+	argv[count]=NULL;
+	cout<<"length : "<< count<<endl;
+}
 
 int createProcess(char * filename){
-	char buffer[1024];
-	//sprintf (buffer, "./%s",filename);
 	int child_pid;
-	if((child_pid=fork())==1){
-		printf("I fall my people\n");
-		_exit(1);
-	}else if(child_pid==0) {
-		char * argv[1501];
-		argv[0]=NULL;
-		commandParsing(filename);
-//		commandParsing(filename,argv);
-		// char * argv[] = {"cat", "simple_shell.cpp",NULL};
-		
-		/*
- 		-----debug-message----
-		int i=0;
-		while(argv[i]!=NULL){
-			cout<<argv[i]<<" ";
-			i+=1;
-		}
-		cout<<endl;
- 		-----debug-message----
-		*/
-		//check if have this order
-		//ls,cat,removetag,removetag0,number
-		/*
-	    	string s("ls,cat,removetag,removetag0,number,echo");
-	    	vector<string> elems;
-	    	split(s, ',', elems);
-		if(argv[0]!=NULL){
+	int cur_cmd;
+	vector<CommandParse> commandParse_v= commandParsing(filename);
+	while(cur_cmd<commandParse_v.size()){
+		if((child_pid=fork())==1){
+			printf("I fall my people\n");
+			_exit(1);
+		}else if(child_pid==0) {
+			//order set::ls,cat,removetag,removetag0,number
+			string s("ls,cat,removetag,removetag0,number,echo");
+			vector<string> orderSet;
+			split(s, ',', orderSet);
+			char * argv[1501];
+			char buffer[1501];
+			argv[0]=NULL;
+			vector2array((commandParse_v.at(cur_cmd)).y,argv);
 			string x(argv[0]);	
-			if(std::find(elems.begin(), elems.end(), x) != elems.end()) {
+			if(find(orderSet.begin(), orderSet.end(), x) != orderSet.end()) {
 				sprintf (buffer, "./%s",argv[0]);
 				if(execv(buffer,argv)==-1){
 					cout<<"hey,hey ,something wrong"<<endl;
@@ -134,17 +132,11 @@ int createProcess(char * filename){
 				cout<<"unknown command :["<<argv[0]<<"]."<<endl;
 				_exit(1);
 			}
-		}*/
-	}else{
-		/*	
- 		-----debug-message----
-		cout<<"child_pid : "<<child_pid<<endl;
-		printf("I am a parent with ,pid : %d \n",getpid());
- 		-----debug-message----
-		*/
+		}else{
+			cur_cmd+=1;
+		}
 	}
 }
-
 
 int main(){
 	int child_pid;
