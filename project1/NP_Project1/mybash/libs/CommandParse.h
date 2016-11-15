@@ -8,6 +8,7 @@ class CommandParse {
 	public :
 		CommandParse();
 		int x;
+		int n_pipe;
 		vector<string> y;
 	
 };
