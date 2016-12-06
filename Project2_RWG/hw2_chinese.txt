@@ -1,0 +1,95 @@
+Project #2 : remote working ground
+
+在這次作業你被要求去設計一的很像聊天室的功能
+稱作 remote working ground （server only） 在這個系統中
+user可以做事 可以聊天教朋友, 基本上這個系統支援project1所有的功能.
+
+此外所有的clients都可以看到其他線上使用者在幹嘛
+
+指令集：
+* all commands in project1
+
+* who : 列出所有使用者. 例如：
+  <sockd> <nickname>      <IP/port>                    <indicate me>
+  3       Iam3            140.113.215.62/1201          <- me
+  4       (No Name)       140.113.215.63/1013
+  5       student5        140.113.215.64/1302
+
+
+* tell  <sockd> <message> : 只把message送到user那邊。例如：
+        % tell 5 Hello.           # from client #3 (Iam3)
+  使用者五號應該要看到這樣的訊息
+        *** Iam3 told you ***:  Hello.
+
+
+* yell <message> : 廣播你的message 到所有的使用者
+        % yell Hi...
+  所有的使用者應該要看到
+        *** student1 yelled ***:  Hi...
+
+
+* name <name> : 把自己的名字改成name 並廣播給所有使用者
+
+        % name student5
+  所有的使用者應該要看到
+        *** User from 140.113.215.62/1201 is named 'student5'. ***
+
+
+* 不管何時 當新的使用者進入的時候 廣播給大家聽
+
+
+* student7 傳一個command 給 student3透過 pipe #7->#3 例如：
+
+        %cat test.html >3
+  所有的使用者會看到下列訊息
+        *** student7 (#7) just piped 'cat test.html >3' to student3 (#3) *** 
+  如果pipe已經存在了,印出下列錯誤訊息：
+        *** Error: the pipe #7->#3 already exists. *** 
+  client 3 要接來自 pipe #7->#3 的話：
+        % cat <7 
+  同時所有使用者會看到：
+        *** student3 (#3) just received from student7 (#7) by 'cat <7' *** 
+  如果 pipe #7->#3不存在：
+        *** Error: the pipe #7->#3 does not exist yet. *** 
+
+
+
+
+需球:
+
+* 寫兩種不同的server program. 
+  (1) Use the single-process concurrent paradigm.
+  (2) Use the concurrent connection-oriented paradigm with shared memory.  
+
+* For each client, all behaviors required by project 1 are still required
+  in this project.  
+
+Hints: 
+
+* You can assume that the # of users is <= 30. 
+
+* ">3" or "<4" 中間沒有空格  所以你可以跟 filename清楚分開
+
+* For the second program (2), 
+  * 一個 chat buffer 最多時個未讀訊息,每一個最多1024 bytees
+  * 對於每一組clinet (A,B) , 一個chat buffer 被分配 for A 送到B ,buffer滿惹 
+    A必須等B消化完
+  * 對於每個 pipe for ">3" 用 FIFO代替pipe
+
+  * 如果訊息超過1024 bytes,截斷到1024 bytes 
+
+  * If you use BBS-like method, you can use signal "SIGUSR1" or "SIGUSR2" to help.  
+  * 如果你用 BBS-like methof ,你可用signal "SIGUSR1"/ "SIGUSR2" 來幫忙
+
+  * For "who", the master process maintain an id for each forked process. 
+    Since there are no more than 30 processes, id <= 30 and let the id be <sockd>. 
+  * 對於"who" the master process 維護一個 id 對於所有的 forked proccess
+    因為不會超過30個processes , 所以id<=30 ,讓id 是 <sockd>
+
+
+Due date: 11/20 (Sun)
+
+
+
+
+
