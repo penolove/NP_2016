@@ -73,7 +73,9 @@ int main(int argc, char *argv[]) {
             close(sockfd);
             dup2(childfd,STDOUT_FILENO);
             dup2(childfd,STDIN_FILENO);
-            execlp("../mybash/mybash",NULL);
+            close(childfd);
+            char *arg[]={NULL};
+            execv("../mybash/mybash",arg);
             // Fork child socket
         }else{//parent process
             close(childfd);

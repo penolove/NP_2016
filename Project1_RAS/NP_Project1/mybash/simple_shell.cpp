@@ -379,9 +379,13 @@ int main(){
     cout<<"%";
     fflush( stdout );
     while((read=getline(&line,&len,stdin))!=-1){
-        line[read-2]='\0';
+        line[read-1]='\0';
+        if(line[read-2]=='\r'){
+            line[read-2]='\0';
+        }
         createProcess(line,N_pipe_queue);
         cout<<"%";
+        fflush( stdout );
     }
         return 0;
 }
