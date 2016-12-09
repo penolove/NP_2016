@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
             close(sockfd);
             dup2(childfd,STDOUT_FILENO);
             dup2(childfd,STDIN_FILENO);
-            close(childfd);
+            dup2(childfd,STDERR_FILENO);
             char *arg[]={NULL};
             execv("../mybash/mybash",arg);
             // Fork child socket

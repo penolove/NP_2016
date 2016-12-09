@@ -25,7 +25,7 @@ demo 不會有任何'/'字元
 | 部會部會接到 printenv 或 setent上
 
 5.	Use '% ' as the command line prompt.
-用％來代表command line prompt
+用％ 來代表command line prompt
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
