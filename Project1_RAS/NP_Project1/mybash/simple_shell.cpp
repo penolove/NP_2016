@@ -376,7 +376,7 @@ int main(){
     setenv("PATH", "./bin:.", 1); 
     
     vector<N_Pipe_elemet> N_pipe_queue;
-    cout<<"%";
+    cout<<"% ";
     fflush( stdout );
     while((read=getline(&line,&len,stdin))!=-1){
         line[read-1]='\0';
@@ -384,7 +384,7 @@ int main(){
             line[read-2]='\0';
         }
         createProcess(line,N_pipe_queue);
-        cout<<"%";
+        cout<<"% ";
         fflush( stdout );
     }
         return 0;
