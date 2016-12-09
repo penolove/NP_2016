@@ -11,7 +11,7 @@
 #include "libs/CommandParse.h"
 using namespace std;
 
-int _debug=1;
+int _debug=0;
 class  N_Pipe_elemet{
     public :
         N_Pipe_elemet(int number,int fdout,int fdin){
@@ -161,11 +161,9 @@ bool check_remains(N_Pipe_elemet value){
 }
 
 bool sys_Check(vector<string>& sysOrder_v,int& order_size, char* argv[]){
-    if(_debug) cout << "flag : 2.15" <<endl;
     vector<string>::iterator itr;
     itr = find(sysOrder_v.begin(),sysOrder_v.end(),string(argv[0]));
     
-    if(_debug) cout << "flag : 2.17 ,"<< itr-sysOrder_v.begin()<<endl;
     //checkif is syscall
     //cout<<"[debug] sysOrder :"<<itr-sysOrder_v.begin()<<endl;
     //0 setenv , 1 printenv ,2 exit
@@ -179,16 +177,11 @@ bool sys_Check(vector<string>& sysOrder_v,int& order_size, char* argv[]){
             return 1;
             break;
         case 1:
-            if(_debug) cout << "flag : 2.18" <<endl;
             if(order_size==2){
-                if(_debug) cout << "flag : 2.185" <<endl;
-                if(_debug) cout << argv[1] <<endl;
                 cout << argv[1] << "=" << getenv(argv[1]) << endl;    
-                if(_debug) cout << "flag : 2.195" <<endl;
             }else{
                 cout<<"usage : printenv variable "<<endl;
             } 
-            if(_debug) cout << "flag : 2.19" <<endl;
             return 1;
             break;
         case 2:
@@ -259,7 +252,7 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
     int npipe_in=0;
     int npipe_out=0;
     int element_exist=0;
-    if(_debug) cout << "flag : 1" <<endl;
+    if(_debug) cout << "flag : 1  createProcess " <<endl;
     for(int i = 0; i < N_pipe_queue.size(); i ++) {
         N_pipe_queue[i].queue_remains-=1;
         //cout<<"[debug] there are stiil "<<N_pipe_queue[i].queue_remains<<" commands to wait"<<endl;
@@ -277,7 +270,8 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
     vector<string>::iterator itr;
     vector<CommandParse> commandParse_v= commandParsing(filename);
 
-    if(_debug) cout << "flag : 2" <<endl;
+    if(_debug) cout << "flag : 2 , collected commands" <<endl;
+    if(_debug) cout << "flag : 2.05 commandParse_v size : "<< commandParse_v.size() <<endl;
 
 
     while(cur_cmd<commandParse_v.size()){
@@ -289,15 +283,15 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
         str_vector2array(curr_command.y,argv,order_size);
 
 
-        if(_debug) cout << "flag : 2.1" <<endl;
+        if(_debug) cout << "flag : 2.1 in the command lopp" <<endl;
         
         //checkif is syscall
         if(sys_Check(sysOrder_v, order_size, argv)){
-            if(_debug) cout << "flag : 2.2" <<endl;
+            if(_debug) cout << "flag : 2.2 checkif System call" <<endl;
             cur_cmd+=1;
         }else{ 
             //deal with pipe process x=1/n_pipe x=2
-            if(_debug) cout << "flag : 2.3" <<endl;
+            if(_debug) cout << "flag : 2.3 , it's not system call" <<endl;
             if(curr_command.x<=2||curr_command.x==4){
                 if(pipe(pipe_curr) < 0) {
                     cout << "[Client] Fail to create pipe\n";
@@ -317,11 +311,12 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
             }
 
             //it's time to fork;
-            if(_debug) cout << "flag : 2.4" <<endl;
+            if(_debug) cout << "flag : 2.4 time to fork" <<endl;
             if((child_pid=fork())==1){
                 printf("I fall my people\n");
                 _exit(1);
             }else if(child_pid==0) {// children process
+                if(_debug) cout << "flag : 2.4 children process" <<endl;
                  child_Fd_Handler( previous_x, pipe_next, pipe_curr,\
                      npipe_in, curr_command,  cur_cmd, commandParse_v);
                 
@@ -337,14 +332,13 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
                     };
                     _exit(1);
                 } else {
-                    cout<<"unknown command :["<<argv[0]<<"]."<<endl;
+                    cout<<"Unknown command: ["<<argv[0]<<"]."<<endl;
                     _exit(1);
                 }
 
 
-                if(_debug) cout << "flag : 2.5" <<endl;
             }else{// the parent process
-                if(_debug) cout << "flag : 2.6" <<endl;
+                if(_debug) cout << "flag : 2.5 parent process" <<endl;
                 //cout<< "[debug] Parent process: I'm In"<<endl;
                 npipe_in=0;
                 int curr_act=curr_command.x;
@@ -383,7 +377,7 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
         }
     }
 
-    if(_debug) cout << "flag : 3" <<endl;
+    if(_debug) cout << "flag : 3 end of this command, check the n_pipe remins" <<endl;
 
     N_pipe_queue.erase(remove_if(N_pipe_queue.begin(), N_pipe_queue.end(), check_remains),N_pipe_queue.end()); 
 
@@ -395,18 +389,19 @@ int main(){
     char * line =NULL;
     size_t len =0;
     ssize_t read;
-    setenv("PATH", "./bin:.", 1); 
+    setenv("PATH", "bin:.", 1); 
     
     vector<N_Pipe_elemet> N_pipe_queue;
     cout<<"% ";
     fflush( stdout );
     while((read=getline(&line,&len,stdin))!=-1){
-        line[read-1]='\0';
-        if(line[read-2]=='\r'){
-            cout<<"wa de jia La"<<endl;
-            line[read-2]='\0';
+        for (int i=0;i<read;i++){
+            if(line[i]=='\r'){
+                line[i]=' ';
+            }
         }
-        cout<<line<<endl;
+        line[read-1]='\0';
+        if(_debug)cout<<line<<endl;
         createProcess(line,N_pipe_queue);
         fflush( stdout );
         cout<<"% ";

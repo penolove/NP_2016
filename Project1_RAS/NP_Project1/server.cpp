@@ -75,7 +75,10 @@ int main(int argc, char *argv[]) {
             dup2(childfd,STDIN_FILENO);
             dup2(childfd,STDERR_FILENO);
             char *arg[]={NULL};
-            execv("../mybash/mybash",arg);
+            cout<<"****************************************"<<endl;
+            cout<<"** Welcome to the information server. **"<<endl;
+            cout<<"****************************************"<<endl;
+            execv("./bin/mybash",arg);
             // Fork child socket
         }else{//parent process
             close(childfd);

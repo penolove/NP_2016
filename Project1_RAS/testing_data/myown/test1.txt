@@ -1,0 +1,31 @@
+****************************************
+** Welcome to the information server. **
+****************************************
+% printenv PATH
+PATH=bin:.
+% ls
+bin
+ras
+test.html
+% setenv PATH .
+% printenv PATH
+PATH=.
+% ls
+Unknown command: [ls].
+% setenv PATH bin
+% ls -al bin
+total 368
+drwxrwxr-x 2 stream stream    121 Dec  9 04:24 .
+drwxrwxr-x 3 stream stream     42 Dec  9 04:24 ..
+-rwxrwxr-x 1 stream stream  54048 Dec  9 00:35 cat
+-rwxrwxr-x 1 stream stream  33040 Dec  9 00:35 echo
+-rwxrwxr-x 1 stream stream 117616 Dec  9 00:35 ls
+-rwxrwxr-x 1 stream stream  76533 Dec  9 04:24 mybash
+-rwxrwxr-x 1 stream stream   8454 Dec  9 00:35 noop
+-rwxrwxr-x 1 stream stream  14616 Dec  9 00:35 number
+-rwxrwxr-x 1 stream stream  28928 Dec  9 00:35 printenv
+-rwxrwxr-x 1 stream stream   8950 Dec  9 00:35 removetag
+-rwxrwxr-x 1 stream stream   9108 Dec  9 00:35 removetag0
+% date
+Unknown command: [date].
+% exit

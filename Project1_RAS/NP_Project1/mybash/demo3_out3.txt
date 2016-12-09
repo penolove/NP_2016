@@ -1,0 +1,31 @@
+   1    1 bin
+   2    2 ls.txt
+   3    3 ras
+   4    4 test1.txt
+   5    5 test2.txt
+   6    6 test.html
+   7    7 
+   8    8 Test
+   9    9 This is a test program
+  10   10 for ras.
+  11   11 
+  12   12 Error: illegal tag "!test.html"
+  13   13 
+  14   14 Test
+  15   15 This is a test program
+  16   16 for ras.
+  17   17 
+  18    1    1 <!test.html>
+  19    2    2 <TITLE>Test<TITLE>
+  20    3    3 <BODY>This is a <b>test</b> program
+  21    4    4 for ras.
+  22    5    5 </BODY>
+  23    1    1 cat
+  24    2    2 echo
+  25    3    3 ls
+  26    4    4 mybash
+  27    5    5 noop
+  28    6    6 number
+  29    7    7 printenv
+  30    8    8 removetag
+  31    9    9 removetag0
