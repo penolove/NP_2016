@@ -1,0 +1,2 @@
+all:
+	g++ fork.cpp;
