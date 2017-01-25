@@ -55,7 +55,7 @@ user可以做事 可以聊天教朋友, 基本上這個系統支援project1所�
 
 
 
-需球:
+需求:
 
 * 寫兩種不同的server program. 
   (1) Use the single-process concurrent paradigm.
@@ -71,7 +71,7 @@ Hints:
 * ">3" or "<4" 中間沒有空格  所以你可以跟 filename清楚分開
 
 * For the second program (2), 
-  * 一個 chat buffer 最多時個未讀訊息,每一個最多1024 bytees
+  * 一個 chat buffer 最多10個未讀訊息,每一個最多1024 bytees
   * 對於每一組clinet (A,B) , 一個chat buffer 被分配 for A 送到B ,buffer滿惹 
     A必須等B消化完
   * 對於每個 pipe for ">3" 用 FIFO代替pipe
@@ -81,8 +81,6 @@ Hints:
   * If you use BBS-like method, you can use signal "SIGUSR1" or "SIGUSR2" to help.  
   * 如果你用 BBS-like methof ,你可用signal "SIGUSR1"/ "SIGUSR2" 來幫忙
 
-  * For "who", the master process maintain an id for each forked process. 
-    Since there are no more than 30 processes, id <= 30 and let the id be <sockd>. 
   * 對於"who" the master process 維護一個 id 對於所有的 forked proccess
     因為不會超過30個processes , 所以id<=30 ,讓id 是 <sockd>
 

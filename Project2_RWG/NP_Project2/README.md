@@ -10,5 +10,11 @@ client 127.0.0.1 9081
 client 127.0.0.1 9081 test/test1.txt
 
 
+## want to add in project2
+### shm
+sever.cpp will create a user_table(shm).
+each client connect into server will get a position in  user_table (maybe in used).
 
+
+ras_tell need implemented in fifo (open tmp file in the linux)
 

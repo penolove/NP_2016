@@ -10,17 +10,15 @@
 #include <sstream>
 #include <cstring>
 #include <string>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 using namespace std;
 #define _DEBUG          1
 
 #define DEFAULT_SERVER_PORT     9081
 #define CLIENTS_MAX     31
 
-#define RECV_BUFF_SIZE  1000
-#define CMD_BUFF_SIZE   260
 
-#define PIPE_NULL       0
-#define PIPE_IPC        1
 
 
 int main(int argc, char *argv[]) {
@@ -50,11 +48,38 @@ int main(int argc, char *argv[]) {
         cout << "[Server] Cannot bind address\n";
         exit(EXIT_FAILURE);
     }
-
+    //---------------SHM---------------------------------//
+    
+    int shmid = 0, i = 0;
+    key_t key;
+    int *shm_int = NULL;
+     
+    // Segment key.
+    key = 8888;
+     
+    // Create the segment.
+    // just need a integer size
+    if( ( shmid = shmget( key, sizeof(i), IPC_CREAT | 0666 ) ) < 0 )
+    {
+        perror( "shmget" );
+        exit(1);
+    }
+     
+    // Attach the segment to the data space.
+    if( ( shm_int = (int *) shmat( shmid, NULL, 0 ) ) == NULL )
+    {
+        perror( "shmat" );
+        exit(1);
+    }
+    //initialize
+    (*shm_int)=0;
+    //----------------------------------------------------//
+    
     // Listen
     if(listen(sockfd, CLIENTS_MAX) < 0) {
         cout << "[Server] Failed to listen\n";
     }
+
     // Accept
     while(1) {
         if(_DEBUG)      cout << "[Server] Waiting for connections on " << server_port << "...\n";
@@ -63,6 +88,8 @@ int main(int argc, char *argv[]) {
             cout << errno<<"\n";
             cout << "[Server] Failed to accept\n";
             continue;
+        }else{
+            (*shm_int)+=1;
         }
 
         int child_pid=0;
@@ -79,11 +106,17 @@ int main(int argc, char *argv[]) {
             cout<<"****************************************"<<endl;
             cout<<"** Welcome to the information server. **"<<endl;
             cout<<"****************************************"<<endl;
-            exit();
+            int w;
+            while(1){
+                cin>>w;
+                cout<<*shm_int<<endl;
+            }
+
+
+            exit(0);
             // Fork child socket
         }else{//parent process
             close(childfd);
-
         }
 
     }
