@@ -52,6 +52,7 @@ void InitEnvir(){
     ras_cmds.push_back("who");
     ras_cmds.push_back("name");
     ras_cmds.push_back("tell");
+    ras_cmds.push_back("yell");
 }
 
 void InitUserTable(UserTable &userTable){
@@ -74,30 +75,6 @@ void send_message( int socketFd, string line ){
 } // send_message()
 
 
-int Login(int childfd,string ip_address){
-    int id;
-    //awesome iteration
-    for( id = 1 ; gShmUT[id].isUsed && id < 31 ; id++ );
-
-    if(id>0 && id <31){
-        if(_DEBUG)      cout << "[Server] Current user id : " << id << endl;
-        gShmUT[id].isUsed=true;
-        gShmUT[id].sockFd=childfd;
-        gShmUT[id].pid = getpid();
-	    sprintf(gShmUT[id].address, "%s", ip_address.c_str() );
-	    sprintf(gShmUT[id].nickname, "(no name)" );
-
-        //replace stdin, thus remains [server]stdout/stderr , clientfd.
-        dup2(childfd,STDIN_FILENO);
-        string messages = "****************************************\n"
-            "** Welcome to the information server. **\n"
-            "****************************************\n";
-        send_message( childfd, messages ) ;
-        return id;
-    }else{
-        return -1;
-    }
-}
 
 void ras_who(){
     //function that need global variable gShmUT
@@ -132,16 +109,14 @@ void ras_name( string name_new ){
 } 
 
 void ras_tell(int target_id , string messages ){
+    //check if online
     if(gShmUT[target_id].isUsed){
-        //check if online
-        sprintf(gShmUT[target_id].messages[gMyId], "%s", messages.c_str());
+        sprintf(gShmUT[target_id].messages[gMyId], "%s\n", messages.c_str());
         gShmUT[target_id].msg_senderId=gMyId;
-
+        //signal to that person
 		kill( gShmUT[target_id].pid, SIGUSR1 );
         if(_DEBUG) cout<< "[Client] : user "<< gMyId \
             << " sent messages to " << target_id<<endl;
-
-        // need to implement signal processing
     }else{
         char buffer[200];
         sprintf( buffer, "Hey, user %d is not online\n", target_id );
@@ -149,8 +124,20 @@ void ras_tell(int target_id , string messages ){
     }
 } 
 
+
+void ras_broadcast(string messages){
+    char buffer [MAX_BUFFER]; 
+    if(_DEBUG) cout<<"[Client] user : "<< gMyId <<" ras_broadcast called"<<endl;
+    for(int id = 1 ;id < 31 ; id++ ){
+        if(gShmUT[id].isUsed){
+            sprintf(buffer, "%s", messages.c_str());
+            ras_tell(id, (string)buffer);
+        }
+    };
+}
+
 void ras_tell_MsgHandler(int sigNum){
-    if(_DEBUG) cout<<"[Client] ras_tell_MsgHandler called"<<endl;
+    if(_DEBUG) cout<<"[Client] user : "<<gMyId <<" ras_tell_MsgHandler called"<<endl;
 	int senderId = gShmUT[gMyId].msg_senderId ;
 	send_message( gShmUT[gMyId].sockFd, gShmUT[gMyId].messages[senderId] );
 	sprintf( gShmUT[gMyId].messages[senderId], "" );
@@ -177,14 +164,56 @@ void execute_ras_cmds(vector<string> commands){
     }else if (commands.at(0)=="tell"){
 
         if(commands.size()==3){
-            ras_tell(atoi(commands.at(1).c_str()),commands.at(2));
+            char buffer [MAX_BUFFER]; 
+            int target_id=atoi(commands.at(1).c_str());
+            sprintf(buffer, "*** %s told you ** : %s", gShmUT[gMyId].nickname, commands.at(2).c_str());
+            ras_tell(target_id,buffer);
         }else{
             string messages ="tell  <sockd> <message> \n";
+            send_message( childfd, messages ) ;
+        }
+    }else if (commands.at(0)=="yell"){
+        if(commands.size()==2){
+            char buffer [MAX_BUFFER]; 
+            sprintf(buffer, "*** %s yelled ** : %s",gShmUT[gMyId].nickname , commands.at(1).c_str());
+            ras_broadcast((string)buffer);
+        }else{
+            string messages ="yell usage: yell <message> \n";
             send_message( childfd, messages ) ;
         }
     }
 }
 
+int Login(int childfd,string ip_address){
+    int id;
+    //awesome iteration
+    for( id = 1 ; gShmUT[id].isUsed && id < 31 ; id++ );
+
+    if(id>0 && id <31){
+        if(_DEBUG)      cout << "[Server] Current user id : " << id << endl;
+        gShmUT[id].isUsed=true;
+        gShmUT[id].sockFd=childfd;
+        gShmUT[id].pid = getpid();
+	    sprintf(gShmUT[id].address, "%s", ip_address.c_str() );
+
+        char buffer_nickname[MAX_BUFFER];
+	    sprintf(buffer_nickname, "student%d",id );
+	    sprintf(gShmUT[id].nickname, buffer_nickname );
+        char buffer_address[MAX_BUFFER];
+	    sprintf(buffer_address, "User form \"%s\" is named '%s'.", ip_address.c_str(), buffer_nickname );
+        ras_broadcast(buffer_address);
+
+        //replace stdin, thus remains [server]stdout/stderr , clientfd.
+        dup2(childfd,STDIN_FILENO);
+        string messages = "****************************************\n"
+            "** Welcome to the information server. **\n"
+            "****************************************\n";
+        send_message( childfd, messages ) ;
+        return id;
+    }else{
+        return -1;
+    }
+}
 bool Logout(){
     if(_DEBUG) cout << "[Server] user id : "<< gMyId <<" is logging out \n";
     InitUserTable(gShmUT[gMyId]);
@@ -309,15 +338,13 @@ int main(int argc, char *argv[]) {
                     for (int i=0; i<CUV.size();i++){
                         if(_DEBUG) cout << "[child] runing action : " << CUV.at(i).commands.at(0)<<endl;
                         string execbin=CUV.at(i).commands.at(0);
-
                         switch(CUV.at(i).command_type){
                             case 1:
-                                cout<<"normal_cmd/ras_cmds"<<endl;
                                 if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
-                                    cout<<"ras_cmds"<<endl;
+                                    cout<<"[Client] command type : ras_cmds"<<endl;
                                     execute_ras_cmds(CUV.at(i).commands); 
                                 }else{
-                                    cout<<"normal_cmds"<<endl;
+                                    cout<<"[Client] command type : normal_cmds"<<endl;
                                     //execute_normal_cmds(CUV.at(i).commands,childfd); 
                                 }
                                 break;
