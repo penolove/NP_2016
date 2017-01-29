@@ -48,11 +48,18 @@ int gMyId;
 vector<string> ras_cmds;
 //--------------global variables:------------- 
 
+
+// ========= InitEvir function block-start =========
 void InitEnvir(){
+    //====== ras command =====
     ras_cmds.push_back("who");
     ras_cmds.push_back("name");
     ras_cmds.push_back("tell");
     ras_cmds.push_back("yell");
+
+    //====== enviroment order ======
+    ras_cmds.push_back("setenv");
+    ras_cmds.push_back("printenv");
 }
 
 void InitUserTable(UserTable &userTable){
@@ -63,6 +70,7 @@ void InitUserTable(UserTable &userTable){
     sprintf( userTable.nickname, "");
 }
 
+// ========= copy function from true true block-strat =========
 
 void exit_message( const char* line ){
     perror( line );
@@ -75,6 +83,8 @@ void send_message( int socketFd, string line ){
 } // send_message()
 
 
+
+// ========= ras_series function block-start =================
 
 void ras_who(){
     //function that need global variable gShmUT
@@ -123,7 +133,6 @@ void ras_tell(int target_id , string messages ){
         send_message( gShmUT[gMyId].sockFd , (string)buffer );
     }
 } 
-
 
 void ras_broadcast(string messages){
     char buffer [MAX_BUFFER]; 
@@ -181,8 +190,28 @@ void execute_ras_cmds(vector<string> commands){
             string messages ="yell usage: yell <message> \n";
             send_message( childfd, messages ) ;
         }
+    }else if (commands.at(0)=="setenv"){
+        if(commands.size()==3){
+            setenv(commands.at(1).c_str(),commands.at(2).c_str(),1);
+        }else{
+            char buffer [MAX_BUFFER]; 
+            sprintf(buffer, "usage : setenv variable value");
+            send_message( childfd, buffer ) ;
+        }
+    }else if (commands.at(0)=="printenv"){
+        char buffer [MAX_BUFFER]; 
+        if(commands.size()==2){
+            sprintf(buffer, "%s = %s ",commands.at(1).c_str(),getenv(commands.at(1).c_str()));
+            send_message( childfd, buffer ) ;
+        }else{
+            sprintf(buffer, "usage : printenv variable ");
+            send_message( childfd, buffer ) ;
+        }
     }
+
 }
+
+// ========= login / logout function block-start =================
 
 int Login(int childfd,string ip_address){
     int id;
@@ -218,6 +247,9 @@ bool Logout(){
     if(_DEBUG) cout << "[Server] user id : "<< gMyId <<" is logging out \n";
     InitUserTable(gShmUT[gMyId]);
 }
+
+// ========= login / logout function block-end  =================
+
 
 int connectSocket( int server_port ){
 	struct sockaddr_in serverAddr ;
@@ -300,12 +332,12 @@ int main(int argc, char *argv[]) {
             printf("I fall my people\n");
             _exit(1);
         }else if(child_pid==0) {// children process
+            setenv("PATH", "bin:.", 1); 
             string commands;
             close(sockfd);
             if(_DEBUG)      cout << "[Server] Connected\n";
 
 	        //get current accept address
-            
             char ip[20], address[30];
             inet_ntop( AF_INET, &cli_addr.sin_addr, ip, sizeof(ip) );
             sprintf( address, "%s/%d", ip, ntohs( cli_addr.sin_port ) );

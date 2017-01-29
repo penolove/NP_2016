@@ -379,7 +379,6 @@ int createProcess(char * filename, vector<N_Pipe_elemet>& N_pipe_queue){
     if(_debug) cout << "flag : 3 end of this command, check the n_pipe remins" <<endl;
 
     N_pipe_queue.erase(remove_if(N_pipe_queue.begin(), N_pipe_queue.end(), check_remains),N_pipe_queue.end()); 
-
 }
 
 int main(){
