@@ -1,3 +1,2 @@
 all:
-	g++ src/simple_shell.cpp libs/*.cpp -o ./mybash/bin/mybash
-	g++ src/server.cpp  -o ./mybash/ras
+	g++ src/server.cpp libs/CommandUnit/CommandUnit.cpp libs/*.cpp -o server

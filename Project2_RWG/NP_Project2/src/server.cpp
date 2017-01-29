@@ -10,6 +10,7 @@
 
 #include "../libs/ras.h"
 #include "../libs/CommandUnit/CommandUnit.h"
+#include "../libs/split.hpp"
 
 //shm library
 #include <sys/ipc.h>
@@ -208,8 +209,10 @@ void execute_ras_cmds(vector<string> commands){
             send_message( childfd, buffer ) ;
         }
     }
-
 }
+
+
+
 
 // ========= login / logout function block-start =================
 
@@ -248,9 +251,72 @@ bool Logout(){
     InitUserTable(gShmUT[gMyId]);
 }
 
-// ========= login / logout function block-end  =================
+// ========= normal_cmd function block-start  =================
+
+int fileAccessUnderPATH(string fname, int mode, string& curr_path) {
+    // check if file exists
+    // mode F_OK (exist) ,X_OK (executable)
+    vector<string> paths;
+    string path = getenv("PATH");
+    split(path, ':',paths);
+    for(int i = 0; i < paths.size(); i ++) {
+        string tmp = paths[i] + '/' + fname;
+        if(access(tmp.c_str(), mode) == 0){
+            curr_path=paths[i];
+            return 1;    // Found file
+        }
+    }
+    return 0;
+}
+
+void str_vec2char_arr(vector<string> commands,char * argv[] ){
+    int count=0;
+    for(std::vector<string>::iterator it = commands.begin(); it != commands.end(); ++it)
+    {
+        char *pc = new char[(*it).size()+1];
+        sprintf(pc,"%s",(*it).c_str());
+        argv[count]=pc;
+        count+=1;    
+    }
+    argv[count]=NULL;
+    //cout<<"[debug] length : "<< count<<endl;
+}
 
 
+void execute_normal_cmds(vector<string> commands){
+    string execbin=commands.at(0);
+    string curr_path;
+    string exec_target;
+    // create argv for execv 
+    char * argv[1501];
+    argv[0]=NULL;
+    str_vec2char_arr(commands,argv);
+
+    int child_pid=0;
+    // check command exist
+    if(fileAccessUnderPATH(execbin, F_OK, curr_path)){
+        if(_DEBUG)  cout<<"[Client] command : "<<execbin << " exist"<<endl;
+        exec_target=curr_path+"/"+execbin;
+
+        if((child_pid=fork())==1){
+            if(_DEBUG)  cout<<"[Client] somewhat fail to fork a process"<<endl;
+                printf("I fall my people\n");
+                _exit(1);
+        }else if(child_pid==0) {// children process
+            if(execv(exec_target.c_str(),argv)==-1){
+                if(_DEBUG)  cout<<"[Client] exec command : "<<execbin << " fail"<<endl;
+            };
+            _exit(1);
+        }else{// the parent process
+            wait(child_pid);
+        }
+    }else{
+        if(_DEBUG)  cout<<"[Client] command : "<<execbin << " not exist"<<endl;
+    }
+} 
+
+
+// ========= create server listening on server_port ===========
 int connectSocket( int server_port ){
 	struct sockaddr_in serverAddr ;
 	int serverSocketFd ;
@@ -277,6 +343,7 @@ int connectSocket( int server_port ){
 
 	return serverSocketFd ;
 } // connectSocket()
+
 
 int main(int argc, char *argv[]) {
     InitEnvir();
@@ -364,20 +431,24 @@ int main(int argc, char *argv[]) {
                             line[i]=' ';
                         }
                     }
+
                     string commands(line);
                     vector <CommandUnit> CUV= Command_parse(commands);
                     if(_DEBUG) cout << "[child] Commands size : " << CUV.size()<<endl;
+                    // iterate the CommandUnit Vector 
+                    // e.g. cat xxx.txt | number
+                    // means CUV size is 2 , first is  "cat xxx.txt" , sec is "number"
                     for (int i=0; i<CUV.size();i++){
                         if(_DEBUG) cout << "[child] runing action : " << CUV.at(i).commands.at(0)<<endl;
                         string execbin=CUV.at(i).commands.at(0);
                         switch(CUV.at(i).command_type){
                             case 1:
                                 if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
-                                    cout<<"[Client] command type : ras_cmds"<<endl;
+                                    if(_DEBUG)  cout<<"[Client] command type : ras_cmds"<<endl;
                                     execute_ras_cmds(CUV.at(i).commands); 
                                 }else{
-                                    cout<<"[Client] command type : normal_cmds"<<endl;
-                                    //execute_normal_cmds(CUV.at(i).commands,childfd); 
+                                    if(_DEBUG)  cout<<"[Client] command type : normal_cmds"<<endl;
+                                    execute_normal_cmds(CUV.at(i).commands); 
                                 }
                                 break;
                             case 2:

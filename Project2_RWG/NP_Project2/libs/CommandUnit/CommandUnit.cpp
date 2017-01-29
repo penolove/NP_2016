@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../split.h"
+#include "../split.hpp"
 
 using namespace std;
 CommandUnit::CommandUnit(){
