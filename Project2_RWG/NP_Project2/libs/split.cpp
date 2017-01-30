@@ -1,3 +1,4 @@
+#include "split.h"
 
 #include <sstream>//sstream for split
 #include <vector> //vector

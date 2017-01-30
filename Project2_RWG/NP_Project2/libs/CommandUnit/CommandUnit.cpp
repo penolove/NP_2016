@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../split.hpp"
+#include "../split.h"
 
 using namespace std;
 CommandUnit::CommandUnit(){
@@ -22,18 +22,42 @@ vector<CommandUnit> Command_parse(string command){
         if(str_temp.length()>0){
             switch(str_temp[0]){
                 case '|':
-                    cout<<"pipe"<<endl;
+                    if(str_temp.length()==1){
+                        cout<<"[CommandUnit.Command_parse] pipe"<<endl;
+                        CUtemp.command_type=2;
+                        CUtemp.n_pipe=0;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }else if (str_temp.length()==2){
+                        CUtemp.command_type=2;
+                        CUtemp.n_pipe=str_temp[1]-'0';
+                        cout<<"[CommandUnit.Command_parse] N_pipe : N-" << CUtemp.n_pipe<<endl;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }
                     //remain to implement
                     continue;
                 case '>':
-                    cout<<"pipe2file"<<endl;
+                    cout<<"[CommandUnit.Command_parse] pipe2file"<<endl;
+                    CUtemp.command_type=3;
+                    CUtemp.n_pipe=0;
+                    CommandUnit_vec.push_back(CUtemp);
+                    CUtemp = CommandUnit();
+                    //remain to implement
+                    continue;
+                case '!':
+                    cout<<"[CommandUnit.Command_parse] pipe_err2file"<<endl;
+                    CUtemp.command_type=4;
+                    CUtemp.n_pipe=0;
+                    CommandUnit_vec.push_back(CUtemp);
+                    CUtemp = CommandUnit();
                     //remain to implement
                     continue;
                 default :
                     CUtemp.commands.push_back(str_temp);
             }
         }
-        if(i==command_split.size()-1){
+        if(i==command_split.size()-1 && CUtemp.commands.size()>0 ){
             CUtemp.command_type=1;
             CommandUnit_vec.push_back(CUtemp);
             CUtemp = CommandUnit();
