@@ -35,18 +35,20 @@ vector<CommandUnit> Command_parse(string command){
                         CommandUnit_vec.push_back(CUtemp);
                         CUtemp = CommandUnit();
                     }
-                    //remain to implement
+                    continue;
+                case '!':
+                    if(str_temp.length()==1){
+                        cout<<"[CommandUnit.Command_parse] err_pipe need't to implement"<<endl;
+                    }else if (str_temp.length()==2){
+                        CUtemp.command_type=3;
+                        CUtemp.n_pipe=str_temp[1]-'0';
+                        cout<<"[CommandUnit.Command_parse] err_N_pipe  : N-" << CUtemp.n_pipe<<endl;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }
                     continue;
                 case '>':
                     cout<<"[CommandUnit.Command_parse] pipe2file"<<endl;
-                    CUtemp.command_type=3;
-                    CUtemp.n_pipe=0;
-                    CommandUnit_vec.push_back(CUtemp);
-                    CUtemp = CommandUnit();
-                    //remain to implement
-                    continue;
-                case '!':
-                    cout<<"[CommandUnit.Command_parse] pipe_err2file"<<endl;
                     CUtemp.command_type=4;
                     CUtemp.n_pipe=0;
                     CommandUnit_vec.push_back(CUtemp);

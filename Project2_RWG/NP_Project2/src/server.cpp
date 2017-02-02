@@ -34,7 +34,6 @@ using namespace std;
 //structure that used to save users online
 struct UserTable {
     pid_t pid;
-    int user_id;
     bool isUsed;
     int sockFd;
     char address[30];
@@ -66,7 +65,6 @@ void InitEnvir(){
 
 void InitUserTable(UserTable &userTable){
     //call by reference and init the table
-    userTable.user_id=1;
     userTable.isUsed =false;
     sprintf( userTable.address, "");
     sprintf( userTable.nickname, "");
@@ -165,7 +163,6 @@ void execute_ras_cmds(vector<string> commands){
             send_message( childfd, messages ) ;
         }
     }else if (commands.at(0)=="name"){
-
         if(commands.size()==2){
             ras_name(commands.at(1));
         }else{
@@ -173,7 +170,6 @@ void execute_ras_cmds(vector<string> commands){
             send_message( childfd, messages ) ;
         }
     }else if (commands.at(0)=="tell"){
-
         if(commands.size()==3){
             char buffer [MAX_BUFFER]; 
             int target_id=atoi(commands.at(1).c_str());
@@ -294,7 +290,7 @@ void execute_normal_cmds(vector<string> commands){
     int child_pid=0;
     // check command exist
     if(fileAccessUnderPATH(execbin, F_OK, curr_path)){
-        if(_DEBUG)  cout<<"[Client] command : "<<execbin << " exist"<<endl;
+        //if(_DEBUG)  cout<<"[Client] command : "<<execbin << " exist"<<endl;
         exec_target=curr_path+"/"+execbin;
         if(execv(exec_target.c_str(),argv)==-1){
             if(_DEBUG)  cout<<"[Client] exec command : "<<execbin << " fail"<<endl;
@@ -343,11 +339,35 @@ void Npipe_queue_handler(vector<N_Pipe_element> &pipe_queue){
         for (vector<N_Pipe_element>::iterator it=pipe_queue.begin(); it!=pipe_queue.end();) {
             if((*it).queue_remains<0) { 
                 if(_DEBUG) cout<<"[Client] delete queue_remains : " <<(*it).queue_remains <<endl;
+                close((*it).fd_out);
+                close((*it).fd_in);
                 it = pipe_queue.erase(it);
             }else { 
                 ++it;
             }
         }
+}
+
+int handle_child_fdin(int pipe_prev[2],vector<N_Pipe_element> pipe_queue){
+    int fdin;
+    int check_result = check_pipe_queue_zeros(pipe_queue);
+    if(check_result == -1){
+        fdin = pipe_prev[0];
+    }else{
+        fdin = pipe_queue.at(check_result).fd_in;   
+    }
+    return fdin;
+}
+
+int handle_child_fdout(int pipe_next[2],vector<N_Pipe_element> &pipe_queue,int n_pipe){
+    int fdout;
+    if(n_pipe==0){
+        fdout=pipe_next[1];
+    }else{
+        int target_pipe=get_N_pipe_queue(pipe_queue,n_pipe);
+        fdout=pipe_queue.at(target_pipe).fd_out;
+    }
+    return fdout;
 }
 
 void ras_wrapper(){
@@ -385,109 +405,95 @@ void ras_wrapper(){
         int pipe_next[2];
         pipe_next[0]=0;
         pipe_next[1]=0;
-
+        
         // iterate the CommandUnit Vector 
-        // e.g. cat xxx.txt | number
-        // means CUV size is 2 , first is  "cat xxx.txt" , sec is "number"
+        // e.g. cat xxx.txt | number -> CUV size is 2 , ["cat xxx.txt" ,"number"]
+
         for (int i=0; i<CUV.size();i++){
             if(_DEBUG) cout << "[Client] runing action : " << CUV.at(i).commands.at(0)<<endl;
             string execbin=CUV.at(i).commands.at(0);
-            switch(CUV.at(i).command_type){
-                case 1:
-                    if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
-                        if(_DEBUG)cout<<"[Client] execute : ras_cmds"<<endl;
-                        execute_ras_cmds(CUV.at(i).commands); 
-                    }else{
-                        if(_DEBUG)cout<<"[Client] execute : normal_cmds"<<endl;
-                        if((child_pid=fork())==1){
-                            if(_DEBUG)cout<<"[Client.ras_wrapper] fork a process for normal_cmds"<<endl;
-                            _exit(1);
-                        }else if(child_pid==0) {// children process
-                            
-                            //childfd handdling
-                            int check_result = check_pipe_queue_zeros(pipe_queue);
-                            if(check_result == -1){
-                                if(_DEBUG)cout<<"[Client.redirect pipe]"<<endl;
-                                if(pipe_prev[0]!=0){
-                                    dup2(pipe_prev[0],STDIN_FILENO);
-                                }
-                            }else{
-                                if(_DEBUG)cout<<"[Client.redirect] check_result : "<<check_result<<endl;
-                                int fdin = pipe_queue.at(check_result).fd_in;   
-                                dup2(fdin,STDIN_FILENO);
-                            }
-                            
-                            execute_normal_cmds(CUV.at(i).commands); 
-                        }else{// the parent process
-                            if(pipe_prev[0]!=0){
-                                close(pipe_prev[0]);
-                            }
-                            if(pipe_prev[1]!=0){
-                                close(pipe_prev[1]);
-                            }
-                            wait(child_pid);
-                        }
-                    }
-                    break;
-                case 2:
-                    if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
-                        if(_DEBUG)  cout<<"[Client] ras_cmd needn't pipe"<<endl;
-                    }else{
-                        if(_DEBUG)  cout<<"[Client] execute : normal_cmds_pipe"<<endl;
-                        //create pipe
-                        if(pipe(pipe_next)<0) {
-                            if(_DEBUG)  cout<<"[Client] somewhat fail to pipe"<<endl;
-                        }
-                        
-                        int fdout;
-                        //handles pipe or n_pipe 
+
+            //check ras_cmds
+            if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
+                if(_DEBUG)cout<<"[Client] execute : ras_cmds"<<endl;
+                execute_ras_cmds(CUV.at(i).commands); 
+            }else{
+                // 3 -> fd_err ,fd_in
+                if(_DEBUG)cout<<"[Client] execute : normal_cmds"<<endl;
+                
+                int fdin = 0;
+                int fderr = 0;
+                int fdout = 0;
+                
+                //chlid_fd_handler
+                switch(CUV.at(i).command_type){
+                    case 1:
+                        if(_DEBUG)cout<<"[Client] "<< i<< "-th command type : 1 "<<endl;
+                        fdin=handle_child_fdin(pipe_prev,pipe_queue);
+                        if(_DEBUG)cout<<"[Client] sockFd :" << gShmUT[gMyId].sockFd<<endl;
+                        fdout=gShmUT[gMyId].sockFd; 
+                        fderr=gShmUT[gMyId].sockFd; 
+                        break;
+                    case 2:
+                        if(_DEBUG)cout<<"[Client] "<< i<< "-th command type : 2 "<<endl;
+                        //handling pipe and n_pipe
                         if(CUV.at(i).n_pipe==0){
-                            fdout=pipe_next[1];
-                        }else{
-                            int target_pipe=get_N_pipe_queue(pipe_queue,CUV.at(i).n_pipe);
-                            fdout=pipe_queue.at(target_pipe).fd_out;
+                            if(pipe(pipe_next)<0){
+                                if(_DEBUG)  cout<<"[Client] somewhat fail to pipe"<<endl;
+                            }
                         }
-                        
-                        if((child_pid=fork())==1) {
-                            if(_DEBUG)  cout<<"[Client.ras_wrapper] fork a process for normal_cmds"<<endl;
-                            _exit(1);
-                        }else if(child_pid==0) {// children process
-                            
-                            //child_fd_handling
-                            if(_DEBUG)  cout<<"[Client] checkpipe_queue"<<endl;
-                            int check_result = check_pipe_queue_zeros(pipe_queue);
-                            if(check_result == -1){
-                                if(pipe_prev[0]!=0){
-                                    dup2(pipe_prev[0],STDIN_FILENO);
-                                }
-                            }else{
-                                int fdin = pipe_queue.at(check_result).fd_in;   
-                                dup2(fdin,STDIN_FILENO);
-                            }
-                            
-                            if(_DEBUG)  cout<<"[Client] n_pipe handle"<<endl;
-                            
-                            if(fdout!=0){
-                                dup2(fdout,STDOUT_FILENO);
-                            }
-                            execute_normal_cmds(CUV.at(i).commands); 
-                        }else {// the parent process
-                            wait(child_pid);
-                            // create a pipe(two) , close two.
-                            if(pipe_prev[0]!=0){
-                                close(pipe_prev[0]);
-                            }
-                            if(pipe_next[1]!=0){
-                                close(pipe_next[1]);
-                            }
-                            pipe_prev[0]=pipe_next[0];
-                            pipe_prev[1]=pipe_next[1];
+                        fdout=handle_child_fdout(pipe_next,pipe_queue,CUV.at(i).n_pipe);
+                        //handle fdin
+                        fdin=handle_child_fdin(pipe_prev,pipe_queue);
+                        break;
+                    case 3:
+                        if(_DEBUG)cout<<"[Client] "<< i<< "-th command type : 3 "<<endl;
+                        //handling pipe and n_pipe
+                        if(CUV.at(i).n_pipe==0){
+                            if(_DEBUG)  cout<<"[Client] needn't implement for ! "<<endl;
                         }
+                        int target_pipe=get_N_pipe_queue(pipe_queue,CUV.at(i).n_pipe);
+                        fderr=pipe_queue.at(target_pipe).fd_out;
+                        //handle fdin
+                        fdin=handle_child_fdin(pipe_prev,pipe_queue);
+                        break;
+                }
+
+                //fork a process to exec the normal_cmds
+                if((child_pid=fork())==1){
+                    if(_DEBUG)  cout<<"[Client.ras_wrapper] fail to fork for normal_cmds"<<endl;
+                    _exit(1);
+                }else if(child_pid==0) {// children process
+                    if(fdin!=0){
+                        if(_DEBUG)  cout<<"[Client.ras_wrapper] fdin replaced with " << fdin<<endl;
+                        dup2(fdin,STDIN_FILENO);
                     }
-                    break;
-                case 3:
-                    //normal_cmd pipe 2 file
-                    break;
+                    if(fdout!=0){
+                        if(_DEBUG)  cout<<"[Client.ras_wrapper] fdout replaced with "<< fdout<<endl;
+                        dup2(fdout,STDOUT_FILENO);
+                        close(fdout);
+                    }
+                    if(fderr!=0){
+                        if(_DEBUG)  cout<<"[Client.ras_wrapper] fderr replaced with "<< fderr<<endl;
+                        dup2(fderr,STDERR_FILENO);
+                        close(fderr);
+                    }
+                    execute_normal_cmds(CUV.at(i).commands); 
+                }else { // the parent process
+                    if(pipe_prev[0]!=0){
+                        close(pipe_prev[0]);
+                    }
+                    if(pipe_prev[1]!=0){
+                        close(pipe_prev[1]);
+                    }
+                    //this is for case 2,3 pipe
+                    if(CUV.at(i).command_type!=1){
+                        pipe_prev[0]=pipe_next[0];
+                        pipe_prev[1]=pipe_next[1];
+                    }
+                    wait(child_pid);
+                }
+            
             }
         }
         if(_DEBUG)  cout<<"[Client] pipe_queue : " <<pipe_queue.size() <<endl;
@@ -595,7 +601,6 @@ int main(int argc, char *argv[]) {
             gMyId=Login(childfd,(string)address );
             if(gMyId!=-1){
                 //i.e. succefully login
-
                 //call ras_wrapper which handles
                 //- commands parse
                 //- ras command execute
