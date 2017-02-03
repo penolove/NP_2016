@@ -1,0 +1,11 @@
+2017.txt
+bin
+docs
+libs
+makefile
+mybash
+README.md
+server
+src
+test.html
+trials

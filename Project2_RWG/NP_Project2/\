@@ -8,28 +8,24 @@
 #include <errno.h>
 #include <string.h>//strcmp
 
-#include <time.h>// time to log
-
 #include <sys/stat.h>//fifo
 #include <fcntl.h>
 
 #include <string>
 #include <algorithm> // find
 
-// shm library
-#include <sys/ipc.h>
-#include <sys/shm.h>
-// network address
-#include <arpa/inet.h>
-// signal
-#include <signal.h>
-
-// library my own
 #include "../libs/ras.h"
 #include "../libs/CommandUnit/CommandUnit.h"
 #include "../libs/split.h"
 #include "../libs/N_Pipe_element.h"
 
+//shm library
+#include <sys/ipc.h>
+#include <sys/shm.h>
+//network address
+#include <arpa/inet.h>
+//signal
+#include <signal.h>
 
 using namespace std;
 #define _DEBUG          1
@@ -88,14 +84,11 @@ void InitUserTable(UserTable &userTable){
             unlink(userTable.fifoName[id]);
             sprintf(userTable.fifoName[id],"");
         }
-        if(gShmUT[id].isUsed){
-            //the other fifo
-            if(strcmp(gShmUT[id].fifoName[userTable.UserID],"")!=0){
-                if(_DEBUG) cout<< "[Server] unlink fifo :" <<gShmUT[id].fifoName[userTable.UserID]<<endl;
-                unlink(gShmUT[id].fifoName[userTable.UserID]);
-                sprintf(gShmUT[id].fifoName[userTable.UserID],"");
-            }
-            kill(SIGSTOP,gShmUT[id].pid);
+        //the other fifo
+        if(strcmp(gShmUT[id].fifoName[userTable.UserID],"")!=0){
+            if(_DEBUG) cout<< "[Server] unlink fifo :" <<gShmUT[id].fifoName[userTable.UserID]<<endl;
+            unlink(gShmUT[id].fifoName[userTable.UserID]);
+            sprintf(gShmUT[id].fifoName[userTable.UserID],"");
         }
     }
     
@@ -152,7 +145,7 @@ void ras_name( string name_new ){
 void ras_tell(int target_id , string messages ){
     //check if online
     if(gShmUT[target_id].isUsed){
-        sprintf(gShmUT[target_id].messages[gMyId], "%s", messages.c_str());
+        sprintf(gShmUT[target_id].messages[gMyId], "%s\n", messages.c_str());
         gShmUT[target_id].msg_senderId=gMyId;
         //signal to that person
         kill( gShmUT[target_id].pid, SIGUSR1 );
@@ -170,7 +163,7 @@ void ras_broadcast(string messages){
     if(_DEBUG) cout<<"[Client] user : "<< gMyId <<" ras_broadcast called"<<endl;
     for(int id = 1 ;id < 31 ; id++ ){
         if(gShmUT[id].isUsed){
-            sprintf(buffer, "%s\n", messages.c_str());
+            sprintf(buffer, "%s", messages.c_str());
             ras_tell(id, (string)buffer);
         }
     };
@@ -204,7 +197,7 @@ void execute_ras_cmds(vector<string> commands){
         if(commands.size()==3){
             char buffer [MAX_BUFFER]; 
             int target_id=atoi(commands.at(1).c_str());
-            sprintf(buffer, "*** %s told you ** : %s\n", gShmUT[gMyId].nickname, commands.at(2).c_str());
+            sprintf(buffer, "*** %s told you ** : %s", gShmUT[gMyId].nickname, commands.at(2).c_str());
             ras_tell(target_id,buffer);
         }else{
             string messages ="tell  <sockd> <message> \n";
@@ -239,6 +232,7 @@ void execute_ras_cmds(vector<string> commands){
     }
 }
 
+
 // ========= login / logout function block-start =================
 
 int Login(int childfd,string ip_address){
@@ -258,7 +252,7 @@ int Login(int childfd,string ip_address){
         sprintf(buffer_nickname, "student%d",id );
         sprintf(gShmUT[id].nickname, buffer_nickname );
         char buffer_address[MAX_BUFFER];
-        sprintf(buffer_address, "User from \"%s\" is named '%s'.\n#", ip_address.c_str(), buffer_nickname );
+        sprintf(buffer_address, "User form \"%s\" is named '%s'.", ip_address.c_str(), buffer_nickname );
         ras_broadcast(buffer_address);
 
         //replace stdin, thus remains [server]stdout/stderr , clientfd.
@@ -308,6 +302,7 @@ void str_vec2char_arr(vector<string> commands,char * argv[] ){
     argv[count]=NULL;
     //cout<<"[debug] length : "<< count<<endl;
 }
+
 
 void execute_normal_cmds(vector<string> commands){
     string execbin=commands.at(0);
@@ -481,15 +476,8 @@ void wrapper_prepare_childFD(int &fdin, int &fdout , int &fderr,int pipe_prev[2]
                         
                     //create fifol if not exist
                     if(strcmp (gShmUT[gMyId].fifoName[target_id],"")==0){
-                        //just get time for log
-                        char timbuff[20];
-                        time_t now = time (0);
-                        struct tm *sTm;
-                        sTm = gmtime (&now);
-                        strftime (timbuff, sizeof(timbuff), "%Y-%m-%d_%H:%M:%S", sTm);
-
                         char temp[200];
-                        sprintf( temp, "/tmp/fifo_from_%d_to_%d_%s", gMyId, target_id ,timbuff);
+                        sprintf( temp, "/tmp/fifo_from_%d_to_%d", gMyId, target_id );
                         sprintf( gShmUT[gMyId].fifoName[target_id], "%s", temp );
                         if( mkfifo( temp , 0666 ) < 0 ) exit_message( "Fifo error\n" );
                         
@@ -661,17 +649,6 @@ void fifo_handler( int sigNum ){
 	gShmUT[gMyId].msg_senderId = 0 ;
 } // fifo_handler()
 
-void clean_fifo_fd (int sigNum){
-    for(int id = 1 ;id < 31 ; id++ ){
-        if(strcmp(gShmUT[gMyId].fifoName[id],"")==0){
-            if(gShmUT[gMyId].readFifoFd[id]!=0){
-                close(gShmUT[gMyId].readFifoFd[id]);
-                gShmUT[gMyId].readFifoFd[id]=0;
-            }
-        }
-    }
-}
-
 // ========= create server listening on server__port ===========
 int connectSocket( int server_port ){
     struct sockaddr_in serverAddr ;
@@ -731,7 +708,6 @@ int main(int argc, char *argv[]) {
     //------------------event handler---------------------//    
     signal(SIGUSR1, ras_tell_MsgHandler ); 	// message process
 	signal(SIGUSR2, fifo_handler ); 	// message process
-	signal(SIGSTOP, clean_fifo_fd ); 	// message process
     //------------------server time----------------------//
     // start server listening on server_port
     sockfd=connectSocket( server_port );
@@ -784,6 +760,7 @@ int main(int argc, char *argv[]) {
             close(childfd);
         }
     }
+    clean();
     return 0;
 }          
 

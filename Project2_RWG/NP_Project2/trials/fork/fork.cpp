@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/wait.h>
 using namespace std;
 
 int main(){
@@ -12,6 +13,7 @@ int main(){
                 printf("I am a child with ,pid : %d \n",getpid());
         }else{
                 printf("I am a parent with ,pid : %d \n",getpid());
+                wait(&child_pid);
         }
         return 0;
 }

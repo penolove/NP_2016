@@ -48,11 +48,31 @@ vector<CommandUnit> Command_parse(string command){
                     }
                     continue;
                 case '>':
-                    cout<<"[CommandUnit.Command_parse] pipe2file"<<endl;
-                    CUtemp.command_type=4;
-                    CUtemp.n_pipe=0;
-                    CommandUnit_vec.push_back(CUtemp);
-                    CUtemp = CommandUnit();
+                    if(str_temp.length()==1){
+                        cout<<"[CommandUnit.Command_parse] pipe2file"<<endl;
+                        CUtemp.command_type=4;
+                        CUtemp.n_pipe=0;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }else if (str_temp.length()==2){
+                        CUtemp.command_type=4;
+                        CUtemp.n_pipe=str_temp[1]-'0';
+                        cout<<"[CommandUnit.Command_parse] fifo_pipe write to " << CUtemp.n_pipe<<endl;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }
+                    //remain to implement
+                    continue;
+                case '<':
+                    if(str_temp.length()==1){
+                        cout<<"[CommandUnit.Command_parse] < need't to implement"<<endl;
+                    }else if (str_temp.length()==2){
+                        CUtemp.command_type=5;
+                        CUtemp.n_pipe=str_temp[1]-'0';
+                        cout<<"[CommandUnit.Command_parse] fifo_pip read form " << CUtemp.n_pipe<<endl;
+                        CommandUnit_vec.push_back(CUtemp);
+                        CUtemp = CommandUnit();
+                    }
                     //remain to implement
                     continue;
                 default :
