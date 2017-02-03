@@ -184,6 +184,7 @@ void ras_tell_MsgHandler(int sigNum){
 } 
 
 void execute_ras_cmds(vector<string> commands){
+    if(_DEBUG)cout<<"[Client] execute : ras_cmds"<<endl;
     int childfd=gShmUT[gMyId].sockFd;
     if(commands.at(0)=="who"){
         if(commands.size()==1){
@@ -310,6 +311,7 @@ void str_vec2char_arr(vector<string> commands,char * argv[] ){
 }
 
 void execute_normal_cmds(vector<string> commands){
+    if(_DEBUG)cout<<"[Client] execute : normal_cmds"<<endl;
     string execbin=commands.at(0);
     string curr_path;
     string exec_target;
@@ -525,11 +527,13 @@ void wrapper_prepare_childFD(int &fdin, int &fdout , int &fderr,int pipe_prev[2]
                         fderr = gShmUT[gMyId].sockFd; 
                         fdin  = gShmUT[gMyId].readFifoFd[target_id];
                     }else{
+                        CUV.at(CUVi).n_pipe = 0;
                         char buffer[200];
                         sprintf( buffer, "Heyy, pipe %d -> %d is not exist\n", target_id ,gMyId);
                         send_message( gShmUT[gMyId].sockFd , (string)buffer );
                     } 
                 }else{
+                    CUV.at(CUVi).n_pipe = 0;
                     char buffer[200];
                     sprintf( buffer, "Hey, user %d is not online\n", target_id );
                     send_message( gShmUT[gMyId].sockFd , (string)buffer );
@@ -588,10 +592,8 @@ void ras_wrapper(){
 
             //check ras_cmds
             if (find(ras_cmds.begin(), ras_cmds.end(), execbin.c_str()) != ras_cmds.end()){
-                if(_DEBUG)cout<<"[Client] execute : ras_cmds"<<endl;
                 execute_ras_cmds(CUV.at(i).commands); 
             }else{
-                if(_DEBUG)cout<<"[Client] execute : normal_cmds"<<endl;
                 
                 int fdin = 0;
                 int fderr = 0;
@@ -618,8 +620,8 @@ void ras_wrapper(){
                     if(pipe_prev[1]!=0){
                         close(pipe_prev[1]);
                     }
-
-                    execute_normal_cmds(CUV.at(i).commands); 
+                    if(CUV.at(i).command_type!=5 || CUV.at(i).n_pipe!=0)
+                        execute_normal_cmds(CUV.at(i).commands); 
 
                 }else { // the parent process
 
